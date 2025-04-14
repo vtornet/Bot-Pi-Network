@@ -3,7 +3,7 @@ from telegram import Update, ChatPermissions
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, ContextTypes, filters
 import time
 
-BOT_TOKEN = "8109364952:AAFTXz1BfcrIwq2aq18QjRcmqb_m0SUDaos"
+BOT_TOKEN = ""
 
 LIMITE_DIARIO = 3
 DURACION_SILENCIO = 60  # minutos

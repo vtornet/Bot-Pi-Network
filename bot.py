@@ -1,4 +1,6 @@
-from datetime import datetime, timedelta
+import requests
+from bs4 import BeautifulSoup
+from datetime import datetime
 from telegram import Update, ChatPermissions
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, ContextTypes, filters
 import time
@@ -29,83 +31,41 @@ def escape_markdown(text: str) -> str:
 def obtener_nombre_usuario(user):
     return escape_markdown(user.first_name or f"@{user.username}" or "Usuario")
 
-async def welcome_new_member(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    for new_member in update.message.new_chat_members:
-        nombre = obtener_nombre_usuario(new_member)
-        await update.message.reply_text(
-            f"¡Bienvenid@ *{nombre}* al grupo oficial de *Pi Network* 🚀\!\n\n"
-            "*Normas del grupo:*\n"
-            "• *Respeto a todos:* Sin insultos ni conflictos.\n"
-            "• *No spam:* Evita mensajes repetitivos o publicidad.\n"
-            "• *Contenido adecuado:* Mantén el tema sobre Pi Network.\n"
-            f"• *Límite multimedia:* Máximo {LIMITE_DIARIO} archivos por día.\n\n"
-            "Escribe /ayuda para ver los comandos disponibles.",
-            parse_mode="MarkdownV2"
-        )
-
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await ayuda(update, context)
-
-async def ayuda(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text(
-        "🤖 *Comandos disponibles:*\n"
-        "/start \\- Mensaje de bienvenida\n"
-        "/ayuda \\- Muestra esta ayuda\n"
-        "/multimedia \\- Ver tus envíos hoy\n"
-        "/reportar [motivo] \\- Reporta a otro usuario\n\n"
-        "⚠️ Evita lenguaje ofensivo\\.",
-        parse_mode="MarkdownV2"
+async def redes(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """
+    Comando /redes para mostrar las redes sociales del grupo.
+    """
+    redes_sociales = (
+        "🌐 *Redes Sociales del Grupo:*\n\n"
+        "📢 *Telegram:* [Pi Network España](https://t.me/PInetworEsp)\n"
+        "📸 *Instagram:* [pinetwork_social_esp](https://www.instagram.com/pinetwork_social_esp)\n"
+        "🐦 *X:* [pisocialesp](https://www.x.com/pisocialesp)\n"
+        "▶️ *YouTube:* [Pi Network Social ESP](https://www.youtube.com/@PiNetworkSocialESP)\n"
+        "🎵 *TikTok:* [pinetworksocial](https://www.tiktok.com/@_pinetworksocial)\n"
+        "🌐 *Web:* [Pi Network Social](https://www.pinetworksocial.com/)\n"
     )
 
-async def reportar(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    print("[DEBUG] Comando /reportar recibido")
-
-    user = update.effective_user
-    nombre = obtener_nombre_usuario(user)
-
-    motivo_raw = " ".join(context.args).strip() if context.args else "Motivo no especificado"
-    motivo = escape_markdown(motivo_raw)
-
-    menciones_admins = "@Kekomst @Alex_Alves87 @Gabrielacsk @Magic2013"
-
     await update.message.reply_text(
-        f"📣 *{nombre}* ha enviado un reporte\\.\n"
-        f"*Motivo:* {motivo}\n"
-        f"Los administradores han sido notificados: {menciones_admins}",
-        parse_mode="MarkdownV2"
+        redes_sociales,
+        parse_mode="MarkdownV2",
+        disable_web_page_preview=True
     )
 
+async def noticias(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """
+    Comando /noticias para mostrar los enlaces de noticias.
+    """
+    mensaje = (
+        "📰 *Noticias Disponibles:*\n\n"
+        "• [Core Team](https://www.pinetworksocial.com/pi-network/actualizaciones-del-core-team)\n"
+        "• [Otras noticias](https://www.pinetworksocial.com/noticias)\n"
+    )
 
-
-async def controlar_envio_multimedia(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user = update.effective_user
-    chat_id = update.effective_chat.id
-    user_id = user.id
-    hoy = datetime.utcnow().date()
-
-    admins = await context.bot.get_chat_administrators(chat_id)
-    if user_id in [admin.user.id for admin in admins]:
-        return
-
-    if chat_id not in multimedia_usuarios:
-        multimedia_usuarios[chat_id] = {}
-
-    if user_id not in multimedia_usuarios[chat_id] or multimedia_usuarios[chat_id][user_id]["fecha"] != hoy:
-        multimedia_usuarios[chat_id][user_id] = {"fecha": hoy, "conteo": 0}
-
-    if multimedia_usuarios[chat_id][user_id]["conteo"] >= LIMITE_DIARIO:
-        try:
-            await update.message.delete()
-        except Exception as e:
-            print(f"No se pudo borrar mensaje multimedia: {e}")
-        nombre = obtener_nombre_usuario(user)
-        await context.bot.send_message(
-            chat_id,
-            f"⚠️ *{nombre}*, límite de {LIMITE_DIARIO} archivos alcanzado hoy\\.",
-            parse_mode="MarkdownV2"
-        )
-    else:
-        multimedia_usuarios[chat_id][user_id]["conteo"] += 1
+    await update.message.reply_text(
+        mensaje,
+        parse_mode="MarkdownV2",
+        disable_web_page_preview=True
+    )
 
 async def detectar_malas_palabras(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not update.message or not update.message.text:
@@ -118,8 +78,11 @@ async def detectar_malas_palabras(update: Update, context: ContextTypes.DEFAULT_
     texto = update.message.text.lower()
     nombre = obtener_nombre_usuario(user)
 
+    print(f"[DEBUG] Mensaje recibido de {nombre}: {texto}")
+
     admins = await context.bot.get_chat_administrators(chat_id)
     if user_id in [admin.user.id for admin in admins]:
+        print("[DEBUG] Usuario es administrador. No se aplican restricciones.")
         return
 
     if chat_id not in advertencias_usuarios:
@@ -131,24 +94,30 @@ async def detectar_malas_palabras(update: Update, context: ContextTypes.DEFAULT_
     advertencias = advertencias_usuarios[chat_id][user_id]["conteo"]
 
     if advertencias >= 3:
+        print(f"[DEBUG] Usuario {nombre} ya fue silenciado anteriormente.")
         return  # Ya fue silenciado
 
-    if any(p in texto for p in palabras_prohibidas):
-        advertencias += 1
+    conteo_palabras_prohibidas = sum(1 for p in palabras_prohibidas if p in texto)
+    print(f"[DEBUG] Palabras prohibidas detectadas: {conteo_palabras_prohibidas}")
+
+    if conteo_palabras_prohibidas > 0:
+        advertencias += conteo_palabras_prohibidas
         advertencias_usuarios[chat_id][user_id]["conteo"] = advertencias
 
         try:
             await update.message.delete()
+            print(f"[DEBUG] Mensaje ofensivo de {nombre} eliminado.")
         except Exception as e:
-            print(f"No se pudo borrar mensaje ofensivo: {e}")
+            print(f"[ERROR] No se pudo borrar mensaje ofensivo: {e}")
 
         await context.bot.send_message(
             chat_id,
             f"⚠️ *{nombre}*, advertencia {advertencias}/3\\.",
             parse_mode="MarkdownV2"
         )
+        print(f"[DEBUG] Advertencia {advertencias}/3 enviada a {nombre}.")
 
-        if advertencias == 3:
+        if advertencias >= 3:
             try:
                 await context.bot.restrict_chat_member(
                     chat_id,
@@ -166,20 +135,15 @@ async def detectar_malas_palabras(update: Update, context: ContextTypes.DEFAULT_
                     f"🔇 *{nombre}* ha sido silenciado por {DURACION_SILENCIO} minutos\\.",
                     parse_mode="MarkdownV2"
                 )
+                print(f"[DEBUG] Usuario {nombre} silenciado por {DURACION_SILENCIO} minutos.")
             except Exception as e:
-                print(f"Error al silenciar: {e}")
+                print(f"[ERROR] Error al silenciar usuario {nombre}: {e}")
 
 def main():
     app = ApplicationBuilder().token(BOT_TOKEN).build()
 
-    app.add_handler(MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, welcome_new_member))
-    app.add_handler(CommandHandler("start", start))
-    app.add_handler(CommandHandler("ayuda", ayuda))
-    app.add_handler(CommandHandler("reportar", reportar))
-    app.add_handler(MessageHandler(
-        filters.PHOTO | filters.VIDEO | filters.Sticker.ALL | filters.ANIMATION,
-        controlar_envio_multimedia
-    ))
+    app.add_handler(CommandHandler("redes", redes))
+    app.add_handler(CommandHandler("noticias", noticias))
     app.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), detectar_malas_palabras))
 
     async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE):
@@ -191,4 +155,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

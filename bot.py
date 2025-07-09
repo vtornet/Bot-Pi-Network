@@ -362,6 +362,8 @@ patrones_spam = [
     r"Anyone\s+sell\s+pi"
     r"Miren\s+este\s+canal"
     r"retira\s+tu\s+bono",
+    r"spotsenales",
+    
 ]
 
 async def detectar_spam(update: Update, context: ContextTypes.DEFAULT_TYPE):

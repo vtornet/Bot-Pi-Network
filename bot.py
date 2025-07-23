@@ -363,7 +363,7 @@ patrones_spam = [
     r"Miren\s+este\s+canal"
     r"retira\s+tu\s+bono",
     r"spotsenales",
-    r"pumpsenals",
+    r"@pumpsenals",
     
 ]
 
